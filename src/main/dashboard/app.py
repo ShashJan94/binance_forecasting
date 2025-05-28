@@ -1,20 +1,26 @@
+import sys
+from typing import Union, Any
+
 import dash
-from dash import html, dcc, Output, Input
-import plotly.graph_objs as go
+from dash import html, dcc, Output, Input, State
 import dash_bootstrap_components as dbc
 import pandas as pd
-import random
-from src.main.dashboard.visualizer.vizualizer import create_coin_chart, create_empty_figure, generate_metrics_text
+
+from src.main.dashboard.visualizer.vizualizer import (
+    create_coin_chart, create_empty_figure, generate_metrics_text,
+    generate_dummy_forecast, generate_dummy_ohlcv
+)
+from src.main.transfer.spark_to_dash import ohlcv_buffer, forecast_buffer
+from dev.config import SYMBOLS
 
 
-# --- Configuration for Live Data ---
-USE_LIVE_DATA = True  # Set to False to use dummy data simulation
-KAFKA_BROKERS = 'localhost:9092'
-OHLCV_TOPIC = 'ohlcv-ticks'
-FORECAST_TOPIC = 'feature-ticks'
-SYMBOLS_TO_DISPLAY = ["BTCUSDT", "ETHUSDT"]
+def check_kafka_incoming(ochlv_buffer, forecast_buffer):
+    # check if there is any data in the buffers and return true or false
+    return any(ochlv_buffer.values()) or any(forecast_buffer.values())
 
-# ---- Custom CSS for glowy effects ----
+
+USE_LIVE_DATA = check_kafka_incoming(ohlcv_buffer, forecast_buffer)
+
 CUSTOM_CSS = """
 body { background: #090d13; font-family: Calibri, Arial, sans-serif; }
 h1 { color: #10aaff; text-shadow: 0 0 15px #10aaff; letter-spacing: 1.5px; }
@@ -23,17 +29,71 @@ h1 { color: #10aaff; text-shadow: 0 0 15px #10aaff; letter-spacing: 1.5px; }
 .btn-glow {
     background: transparent; border: 2px solid #10aaff; color: #10aaff;
     border-radius: 8px; padding: 10px 22px; font-weight: 600;
-    transition: box-shadow 0.2s;
+    transition: box-shadow 0.2s, background 0.2s, color 0.2s;
     box-shadow: 0 0 10px #10aaff44;
 }
-.btn-glow:hover { box-shadow: 0 0 22px #10aaff99; background: #132c45; }
+.btn-glow:hover {
+    box-shadow: 0 0 22px #10aaff99;
+    background: #132c45;
+    color: #fff;
+}
 .graph-card {
-    background: #10141b88; border-radius: 16px; box-shadow: 0 0 20px #10aaff11;
-    border: 1.5px solid #10aaff44; padding: 16px; margin: 8px;
+    background: #10141b88;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(16, 20, 27, 0.5);
+    border: 1.5px solid #10aaff44;
+    padding: 20px;
+    margin: 16px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.graph-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 30px rgba(16, 20, 27, 0.8);
+}
+
+/* --- Dash Dropdown (react-select) dark styling --- */
+.Select-control, .Select-menu-outer, .Select--multi .Select-value {
+    background: #181c24 !important;
+    color: #e0e0e0 !important;
+    border: 1.5px solid #10aaff !important;
+    border-radius: 8px !important;
+    font-size: 15px !important;
+}
+.Select-placeholder, .Select-input > input {
+    color: #b0b8c1 !important;
+}
+.Select-menu-outer {
+    border-radius: 0 0 8px 8px !important;
+    background: #181c24 !important;
+    color: #e0e0e0 !important;
+    border: 1.5px solid #10aaff !important;
+}
+.Select-value-label {
+    color: #10aaff !important;
+}
+.Select-arrow-zone, .Select-clear-zone {
+    color: #10aaff !important;
+}
+.Select--multi .Select-value {
+    background: #132c45 !important;
+    border-radius: 6px !important;
+    margin: 2px 4px 2px 0 !important;
+}
+.Select-option {
+    background: #181c24 !important;
+    color: #e0e0e0 !important;
+    font-size: 15px !important;
+}
+.Select-option.is-focused {
+    background: #132c45 !important;
+    color: #10aaff !important;
+}
+.Select-option.is-selected {
+    background: #10aaff !important;
+    color: #181c24 !important;
 }
 """
 
-# Inject custom CSS
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 app.index_string = f"""
 <!DOCTYPE html>
@@ -56,9 +116,6 @@ app.index_string = f"""
 </html>
 """
 
-# ---- UI Layout ----
-# Assume SYMBOLS is loaded from your config: from config import SYMBOLS
-
 app.layout = html.Div([
     html.H1("Coin Signal Live Analytics", style={"textAlign": "center"}),
     html.Div([
@@ -67,37 +124,62 @@ app.layout = html.Div([
         html.Span("Live Status: ", className="glowy-blue", style={'marginLeft': '18px'}),
         html.Span(id="live-status", className="glowy-green", children="Running")
     ], style={"textAlign": "center", "marginBottom": "18px"}),
-
     dcc.Dropdown(
         id='coin-selector',
-        options=[{'label': sym.upper(), 'value': sym.upper()} for sym in SYMBOLS], # Ensure consistent casing if needed
-        value=[SYMBOLS[0].upper(), SYMBOLS[1].upper()] if len(SYMBOLS) >= 2 else [s.upper() for s in SYMBOLS], # Default to first two, ensure casing
+        options=[{'label': sym.upper(), 'value': sym.upper()} for sym in SYMBOLS],
+        value=[SYMBOLS[0].upper(), SYMBOLS[1].upper()] if len(SYMBOLS) >= 2 else [s.upper() for s in SYMBOLS],
         multi=True,
-        style={'width': '80%', 'margin': '0 auto 20px auto', 'color': '#333'} # Darker text for readability
+        style={'width': '80%', 'margin': '0 auto 20px auto', 'color': '#333'}
     ),
-
-    dcc.Interval(id="interval", interval=3000, n_intervals=0, disabled=False), # 3-second updates, added disabled state
-
-    # This Div will be populated by a callback with graph components
-    dbc.Container(id='dynamic-graphs-container', fluid=True, children=[
-        # You can put a placeholder message here if you like,
-        # e.g., html.P("Select coins from the dropdown to see graphs.")
-    ])
-
+    dcc.Interval(id="interval", interval=10000, n_intervals=0, disabled=False),
+    dcc.Loading(
+        id="loading-spinner",
+        type="circle",
+        children=dbc.Container(id='dynamic-graphs-container', fluid=True)
+    )
 ], style={"padding": "18px"})
+
+
+def get_symbol_data(symbol, use_live_data):
+    ohlcv_df = pd.DataFrame()
+    forecast_item = None
+    if use_live_data:
+        if symbol in ohlcv_buffer and ohlcv_buffer[symbol]:
+            ohlcv_list = list(ohlcv_buffer[symbol])
+            ohlcv_df = pd.DataFrame(ohlcv_list)
+            if not ohlcv_df.empty and 't' in ohlcv_df.columns:
+                ohlcv_df['t'] = pd.to_datetime(ohlcv_df['t'])
+                ohlcv_df = ohlcv_df.sort_values(by='t')
+            else:
+                ohlcv_df = pd.DataFrame()
+        if symbol in forecast_buffer and forecast_buffer[symbol]:
+            forecast_raw_item = forecast_buffer[symbol][-1]
+            forecast_item = {
+                "symbol": forecast_raw_item.get("symbol"),
+                "forecast_values": forecast_raw_item.get("forecast"),
+                "last_actual_time": pd.to_datetime(forecast_raw_item.get("window_end_time")),
+                "bar_duration_seconds": forecast_raw_item.get("bar_duration_seconds", 1)
+            }
+    else:
+        if 'generate_dummy_ohlcv' in globals():
+            ohlcv_df = generate_dummy_ohlcv(symbol)
+        if not ohlcv_df.empty and 'generate_dummy_forecast' in globals():
+            last_actual_dt = ohlcv_df['t'].iloc[-1]
+            last_close = ohlcv_df['close'].iloc[-1] if 'close' in ohlcv_df.columns else 0
+            forecast_item = generate_dummy_forecast(symbol, last_actual_dt, last_close)
+    return ohlcv_df, forecast_item
+
 
 @app.callback(
     [Output('interval', 'disabled'),
      Output('live-status', 'children')],
     [Input('pause-btn', 'n_clicks')],
     [State('interval', 'disabled')],
-    prevent_initial_call=True  # Don't run on app load
+    prevent_initial_call=True
 )
 def toggle_pause_stream(n_clicks_pause, currently_disabled):
     if n_clicks_pause is None or n_clicks_pause == 0:
-        # Should not happen with prevent_initial_call=True but as a safeguard
         return currently_disabled, "Running" if not currently_disabled else "Paused"
-
     new_disabled_state = not currently_disabled
     live_status_text = "Paused" if new_disabled_state else "Running"
     return new_disabled_state, live_status_text
@@ -110,189 +192,43 @@ def toggle_pause_stream(n_clicks_pause, currently_disabled):
         Input("refresh-btn", "n_clicks"),
         Input('coin-selector', 'value')
     ],
-    [State('interval', 'disabled')]  # To check if paused
+    [State('interval', 'disabled')]
 )
 def update_dynamic_graphs(n_intervals, n_clicks_refresh, selected_symbols, interval_disabled):
-    # Use dash.ctx.triggered_id to see what fired the callback, if needed for complex logic
-    # For now, we'll update if not paused, or if refresh is clicked
     triggered_id = dash.ctx.triggered_id
-
     if interval_disabled and triggered_id != "refresh-btn":
-        # If paused and not a manual refresh, don't update graphs.
-        # Return dash.no_update to keep current graphs, or return an empty list/message
-        # For simplicity, if paused, let's just signal no update to the graph container.
-        # This means existing graphs stay as they are.
         return dash.no_update
-
     if not selected_symbols:
         return [html.P("Select one or more coins from the dropdown to display graphs.", style={'textAlign': 'center'})]
 
-    dynamic_graph_components = []
-
-    # Define how many graphs per row (e.g., 3 for xl, 2 for lg, 1 for smaller)
-    # You can adjust this based on your preference.
-    # For simplicity, let's aim for a flexible number of columns per row.
-    # dbc.Row will handle wrapping if dbc.Col width sums to more than 12.
-
-    current_row_children = []
-    MAX_COLS_PER_ROW_XL = 3  # e.g. up to 3 graphs in a row on extra large screens
-    # You can define more breakpoints if needed, e.g. MAX_COLS_PER_ROW_LG = 2
-
-    for symbol_upper in selected_symbols:  # Assuming selected_symbols are already uppercase
-        symbol = symbol_upper  # Use consistent casing as in your data buffers
-
-        ohlcv_df = pd.DataFrame()
-        forecast_item = None
-
-        if USE_LIVE_DATA:  # Make sure USE_LIVE_DATA is defined in your app
-            # Fetch from Live Data Buffers (Logic from your previous update_all_graphs)
-            if symbol in ohlcv_buffer and ohlcv_buffer[symbol]:
-                ohlcv_list = list(ohlcv_buffer[symbol])
-                ohlcv_df = pd.DataFrame(ohlcv_list)
-                if not ohlcv_df.empty and 't' in ohlcv_df.columns:
-                    ohlcv_df['t'] = pd.to_datetime(ohlcv_df['t'])
-                    ohlcv_df = ohlcv_df.sort_values(by='t')  # Ensure sorted
-                else:
-                    ohlcv_df = pd.DataFrame()
-
-            if symbol in forecast_buffer and forecast_buffer[symbol]:
-                forecast_raw_item = forecast_buffer[symbol][-1]
-                forecast_item = {
-                    "symbol": forecast_raw_item.get("symbol"),
-                    "forecast_values": forecast_raw_item.get("forecast"),
-                    "last_actual_time": pd.to_datetime(forecast_raw_item.get("window_end_time")),  # Adapt key
-                    "bar_duration_seconds": forecast_raw_item.get("bar_duration_seconds", 1)
-                }
-        else:
-            # --- Use Dummy Data Simulation --- (ensure these functions exist)
-            # ohlcv_df = generate_dummy_ohlcv(symbol)
-            # if not ohlcv_df.empty:
-            #     last_actual_dt = ohlcv_df['t'].iloc[-1]
-            #     forecast_item = generate_dummy_forecast(symbol, last_actual_dt)
-            # For now, let's assume dummy functions if USE_LIVE_DATA is false
-            # This part needs your dummy data functions from the previous examples
-            if 'generate_dummy_ohlcv' in globals():  # Check if dummy functions are defined
-                ohlcv_df = generate_dummy_ohlcv(symbol)
-                if not ohlcv_df.empty and 'generate_dummy_forecast' in globals():
-                    last_actual_dt = ohlcv_df['t'].iloc[-1]
-                    forecast_item = generate_dummy_forecast(symbol, last_actual_dt)
-            else:  # Fallback if dummy functions aren't present
-                ohlcv_df = pd.DataFrame()
-                forecast_item = None
-
-        if ohlcv_df.empty:
-            fig = create_empty_figure()
-            # Update: create_empty_figure should add a title for clarity
-            fig.update_layout(title_text=f"{symbol} - No Data")
-            metrics_text_content = f"{symbol}: Waiting for data..."
-        else:
-            fig = create_coin_chart(symbol, ohlcv_df, forecast_item)
-            metrics_text_content = generate_metrics_text(symbol, ohlcv_df, forecast_item)
-
-        # Using dictionary IDs for components for better practice, though not strictly necessary
-        # if this callback is the only one writing to 'dynamic-graphs-container'.
-        graph_component_id = {'type': 'dynamic-graph', 'symbol': symbol}
-        metrics_component_id = {'type': 'dynamic-metrics', 'symbol': symbol}
-
-        coin_card_content = html.Div([
-            dcc.Graph(id=graph_component_id, figure=fig),
-            html.Div(id=metrics_component_id, children=metrics_text_content, className="glowy-green")
-        ], className="graph-card")
-
-        # Add to current row's children, controlling layout with dbc.Col
-        # You can customize width, lg, xl based on how many you want per row.
-        # For example, to aim for 3 per row on large screens:
-        current_row_children.append(dbc.Col(coin_card_content, width=12, md=6, xl=4))
-
-        # If you want to strictly limit to 3 per row and then start a new row:
-        # if len(current_row_children) == MAX_COLS_PER_ROW_XL:
-        #    dynamic_graph_components.append(dbc.Row(current_row_children, style={"marginBottom": "1vw"}))
-        #    current_row_children = []
-
-    # After the loop, if there are any remaining children for the current row, add them.
-    # This simplified version just adds all dbc.Col to one dbc.Row, letting them wrap.
-    # For more control (e.g., max 3 per row), you'd build dbc.Row components in the loop.
-    if current_row_children:
-        dynamic_graph_components.append(dbc.Row(current_row_children, style={"marginBottom": "1vw"}))
-
-    # If you prefer to make multiple rows with a fixed number of columns (e.g. 3):
-    # final_layout = []
-    # for i in range(0, len(all_coin_cards_as_cols), MAX_COLS_PER_ROW_XL):
-    #     row_cols = all_coin_cards_as_cols[i:i + MAX_COLS_PER_ROW_XL]
-    #     final_layout.append(dbc.Row(row_cols, style={"marginBottom": "1vw"}))
-    # return final_layout
-    # The current_row_children logic above already puts them in dbc.Col,
-    # so dynamic_graph_components will be a list of dbc.Row(s) if you use the MAX_COLS_PER_ROW logic,
-    # or a list containing one dbc.Row with many dbc.Col(s) if you use the simpler wrapping.
-
-    # Simpler approach: just return the list of dbc.Row(s) created.
-    # The current version with append(dbc.Row(current_row_children...)) will make one row.
-    # If you want multiple rows each having up to MAX_COLS_PER_ROW_XL:
-
-    # Let's adjust to create multiple rows if needed:
-    final_layout_rows = []
-    all_coin_cards_prepared_cols = []  # This list will hold all the dbc.Col(...) items
-
-    # (Re-run the loop above or store the dbc.Col items in a list first)
-    # For simplicity, let's assume the previous loop populated `all_coin_cards_prepared_cols`
-    # with `dbc.Col(coin_card_content, width=12, md=6, xl=4)` items.
-
-    # Re-doing the card creation part slightly to fit multi-row logic:
-    all_coin_cards_prepared_cols = []
+    all_cols = []
     for symbol_upper in selected_symbols:
         symbol = symbol_upper
-        # ... (data fetching logic as above for ohlcv_df, forecast_item, fig, metrics_text_content) ...
-        # This is a copy of the data fetching & component creation from above
-        # In a real app, you'd refactor this into a helper or structure it cleanly
-        if USE_LIVE_DATA:
-            if symbol in ohlcv_buffer and ohlcv_buffer[symbol]:  # Simplified data fetching part for brevity
-                ohlcv_list = list(ohlcv_buffer[symbol]);
-                ohlcv_df = pd.DataFrame(ohlcv_list)
-                if not ohlcv_df.empty and 't' in ohlcv_df.columns:
-                    ohlcv_df['t'] = pd.to_datetime(ohlcv_df['t']); ohlcv_df = ohlcv_df.sort_values(by='t')
-                else:
-                    ohlcv_df = pd.DataFrame()
-            if symbol in forecast_buffer and forecast_buffer[symbol]:
-                forecast_raw_item = forecast_buffer[symbol][-1]
-                forecast_item = {"symbol": symbol, "forecast_values": forecast_raw_item.get("forecast"),
-                                 "last_actual_time": pd.to_datetime(forecast_raw_item.get("window_end_time")),
-                                 "bar_duration_seconds": 1}
-            else:
-                forecast_item = None  # Ensure it's defined
-        else:  # Dummy data placeholder
-            if 'generate_dummy_ohlcv' in globals():
-                ohlcv_df = generate_dummy_ohlcv(symbol)
-            else:
-                ohlcv_df = pd.DataFrame()
-            if not ohlcv_df.empty and 'generate_dummy_forecast' in globals():
-                forecast_item = generate_dummy_forecast(symbol, ohlcv_df['t'].iloc[-1])
-            else:
-                forecast_item = None
-
+        ohlcv_df, forecast_item = get_symbol_data(symbol, USE_LIVE_DATA)
         if ohlcv_df.empty:
-            fig = create_empty_figure(); fig.update_layout(
-                title_text=f"{symbol} - No Data"); metrics_text_content = f"{symbol}: Waiting for data..."
+            fig = create_empty_figure()
+            fig.update_layout(title_text=f"{symbol} - No Data")
+            metrics_text = f"{symbol}: Waiting for data..."
         else:
-            fig = create_coin_chart(symbol, ohlcv_df, forecast_item); metrics_text_content = generate_metrics_text(
-                symbol, ohlcv_df, forecast_item)
+            fig = create_coin_chart(symbol, ohlcv_df, forecast_item)
+            metrics_text = generate_metrics_text(symbol, ohlcv_df, forecast_item)
+        graph_id = {'type': 'dynamic-graph', 'symbol': symbol}
+        metrics_id = {'type': 'dynamic-metrics', 'symbol': symbol}
+        card = html.Div([
+            dcc.Graph(id=graph_id, figure=fig, style ={"height": "400px"}),
+            html.Div(id=metrics_id, children=metrics_text, className="glowy-green")
+        ], className="graph-card")
+        all_cols.append(dbc.Col(card, width=12, md=6, xl=4))
 
-        graph_component_id = {'type': 'dynamic-graph', 'symbol': symbol}
-        metrics_component_id = {'type': 'dynamic-metrics', 'symbol': symbol}
-        coin_card_content = html.Div([dcc.Graph(id=graph_component_id, figure=fig),
-                                      html.Div(id=metrics_component_id, children=metrics_text_content,
-                                               className="glowy-green")], className="graph-card")
-        all_coin_cards_prepared_cols.append(
-            dbc.Col(coin_card_content, width=12, md=6, xl=4))  # md=6 for 2 cols on medium, xl=4 for 3 cols on XL
-
-    # Now create rows from all_coin_cards_prepared_cols
-    # This logic will put up to 3 cards (since xl=4, 12/4=3) per row.
-    # If you have 5 cards, it will make one row of 3, and one row of 2.
-    cols_per_row = 3  # Based on xl=4
-    for i in range(0, len(all_coin_cards_prepared_cols), cols_per_row):
-        row_children = all_coin_cards_prepared_cols[i: i + cols_per_row]
-        final_layout_rows.append(dbc.Row(row_children, style={"marginBottom": "1vw"}))
-
-    if not final_layout_rows and selected_symbols:  # If symbols selected but no cards (e.g. all fail)
+    cols_per_row = 3
+    rows = []
+    for i in range(0, len(all_cols), cols_per_row):
+        rows.append(dbc.Row(all_cols[i:i + cols_per_row], style={"marginBottom": "1vw"}))
+    if not rows and selected_symbols:
         return [html.P("Could not generate graphs for selected symbols.", style={'textAlign': 'center'})]
+    return rows
 
-    return final_layout_rows
+
+if __name__ == '__main__':
+    #run the server
+    app.run_server(debug=True, port=8050)

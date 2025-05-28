@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 # Function to connect to websocket and receive messages from bianance
-async def fetch_trade_data(symbol: str, producer: Producer):
+async def fetch_trade_data(symbol: str, producer: Producer, limit: int = 50):
     url = f"wss://stream.binance.com:9443/ws/{symbol}@trade"
     async with websockets.connect(url) as ws:
         logger.info(f"✅ Connected to {url}\n")
-        for _ in range(50): # Limit to 5 messages for testing
+        for _ in range(limit):  # Limit to 5 messages for testing
 
             raw_msg = await ws.recv()  # 1) get the raw JSON string
             logger.info("RAW: %s", raw_msg)
@@ -49,6 +49,3 @@ async def fetch_trade_data(symbol: str, producer: Producer):
             except KafkaError as e:
                 logger.error("Failed to send message to Kafka: %s", e)
             logger.info("Message: %s", message)
-
-
-
