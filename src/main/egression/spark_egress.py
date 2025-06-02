@@ -10,6 +10,10 @@ def preprocess_data(df):
     """
     Given raw ticks with (symbol,price,quantity,event_ts),
     emit 1-second OHLCV bars.
+    Args:
+        df: Spark DataFrame with columns symbol, price, quantity, event_ts
+    Returns:
+        Spark DataFrame with 1-second OHLCV bars
     """
     bars = (
         df
@@ -32,6 +36,13 @@ def preprocess_data(df):
 
 
 def build_30bar_features(bars):
+    """
+    Build rolling 30-bar features for each symbol.
+    Args:
+        bars: Spark DataFrame with OHLCV bars (must include 'close' and 'event_ts')
+    Returns:
+        Spark DataFrame with columns: symbol, event_ts, past_30, sma_30, vol_30
+    """
     feat = (
         bars
         .groupBy(

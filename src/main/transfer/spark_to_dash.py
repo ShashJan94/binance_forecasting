@@ -23,37 +23,8 @@ forecast_buffer = {sym: deque(maxlen=MAX_FORECASTS) for sym in SYMBOLS}
 
 # 2) Define tiny transform functions to pull out only what your viz needs
 def _transform_ohlcv(rec):
-    # rec: {symbol, event_ts, open, high, low, close, vol, …}
-    return {
-        "t": rec["event_ts"],  # your create_coin_chart expects a `t` column
-        "open": rec["open"],
-        "high": rec["high"],
-        "low": rec["low"],
-        "close": rec["close"],
-    }
-
-
-def _transform_forecast(rec):
-    # rec: {symbol, window_end_time|event_ts, forecast, …}
-    return {
-        "window_end_time": rec.get("event_ts") or rec.get("window_end_time"),
-        "forecast": rec["forecast"],
-    }
-
-
-def start_kafka_consumer_thread(topic: list = [OHLCV_TOPIC, FORECAST_TOPIC]):
     """
-    Starts a Kafka consumer thread for the given topic and buffer.
-    """
-    # 3) Fire off two daemon threads that poll Kafka forever
-    threading.Thread(
-        target=kafka_consumer_thread,
-        args=(topic[:1], ohlcv_buffer, KAFKA_BROKERS, "ohlcv", _transform_ohlcv),
-        daemon=True
-    ).start()
-
-    threading.Thread(
-        target=kafka_consumer_thread,
-        args=(topic[1:2], forecast_buffer, KAFKA_BROKERS, "forecast", _transform_forecast),
-        daemon=True
-    ).start()
+    Transform a raw OHLCV record from Kafka into a dictionary suitable for visualization.
+    Args:
+        rec (dict): Raw OHLCV record from Kafka.
+    Returns

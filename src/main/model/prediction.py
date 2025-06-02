@@ -10,6 +10,13 @@ from src.main.model.model_util import predict_price  # or whatever your import p
 
 @pandas_udf(ArrayType(DoubleType()))
 def forecast_udf(past_series: pd.Series) -> pd.Series:
+    """
+    Pandas UDF for forecasting future prices using ARIMA.
+    Args:
+        past_series (pd.Series): Each row is a list/array of floats (past prices).
+    Returns:
+        pd.Series: Each row is a list of forecasted float values (length=horizon).
+    """
     sys.stdout.write(f"Incoming Data: {pd.Series(past_series)}\n")
     sys.stdout.flush()
     # past_series: Each row is a list/array of floats (your past_30)

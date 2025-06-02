@@ -7,6 +7,14 @@ from datetime import datetime, timedelta
 
 # --- Graphing Helper Functions (from visualizer.py or defined inline) ---
 def create_empty_figure(symbol_for_title=None):
+    """
+    Create an empty Plotly figure with a 'No Data' message.
+    Optionally includes the symbol in the title.
+    Args:
+        symbol_for_title (str, optional): Symbol to include in the title.
+    Returns:
+        plotly.graph_objs.Figure: Empty figure with custom title and layout.
+    """
     fig = go.Figure()
     title = "No Data"
     if symbol_for_title:
@@ -21,6 +29,15 @@ def create_empty_figure(symbol_for_title=None):
 
 
 def create_coin_chart(symbol, ohlcv_df, forecast_data_item=None):
+    """
+    Create a candlestick chart for a given symbol with optional forecast overlay.
+    Args:
+        symbol (str): The trading symbol.
+        ohlcv_df (pd.DataFrame): DataFrame with OHLCV data.
+        forecast_data_item (dict, optional): Forecast data to overlay.
+    Returns:
+        plotly.graph_objs.Figure: Candlestick chart with optional forecast line.
+    """
     if ohlcv_df.empty:
         return create_empty_figure(symbol)
     fig = go.Figure()
@@ -65,6 +82,15 @@ def create_coin_chart(symbol, ohlcv_df, forecast_data_item=None):
 
 
 def generate_metrics_text(symbol, ohlcv_df, forecast_data_item=None):
+    """
+    Generate a summary text for the latest close and forecast value for a symbol.
+    Args:
+        symbol (str): The trading symbol.
+        ohlcv_df (pd.DataFrame): DataFrame with OHLCV data.
+        forecast_data_item (dict, optional): Forecast data.
+    Returns:
+        str: Summary text with close and forecast values.
+    """
     if ohlcv_df.empty:
         return f"{symbol.upper()}: No data"
     metric_text = f"{symbol.upper()} - Close: {ohlcv_df['close'].iloc[-1]:.2f}"
@@ -76,6 +102,15 @@ def generate_metrics_text(symbol, ohlcv_df, forecast_data_item=None):
 
 
 def generate_dummy_ohlcv(symbol: str, periods: int = 6, freq_seconds: int = 1) -> pd.DataFrame:
+    """
+    Generate a dummy OHLCV DataFrame for testing/visualization purposes.
+    Args:
+        symbol (str): The trading symbol.
+        periods (int): Number of periods to generate.
+        freq_seconds (int): Frequency in seconds between bars.
+    Returns:
+        pd.DataFrame: DataFrame with columns t, open, high, low, close.
+    """
     now = datetime.utcnow()
     times = [now - timedelta(seconds=(periods - i) * freq_seconds) for i in range(periods)]
     base = random.uniform(120, 180)
@@ -93,6 +128,17 @@ def generate_dummy_ohlcv(symbol: str, periods: int = 6, freq_seconds: int = 1) -
 
 
 def generate_dummy_forecast(symbol: str, last_actual_time: datetime, last_close: float, horizon: int = 8, freq_seconds: int = 1):
+    """
+    Generate a dummy forecast dictionary for testing/visualization purposes.
+    Args:
+        symbol (str): The trading symbol.
+        last_actual_time (datetime): Last actual time for the forecast start.
+        last_close (float): Last close price.
+        horizon (int): Number of forecast steps.
+        freq_seconds (int): Frequency in seconds between forecast points.
+    Returns:
+        dict: Forecast data with symbol, forecast_values, last_actual_time, bar_duration_seconds.
+    """
     forecast_values = []
     price = last_close
     for _ in range(horizon):
@@ -104,3 +150,4 @@ def generate_dummy_forecast(symbol: str, last_actual_time: datetime, last_close:
         "last_actual_time": last_actual_time,
         "bar_duration_seconds": freq_seconds
     }
+

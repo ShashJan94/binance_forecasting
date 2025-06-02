@@ -8,6 +8,13 @@ import pyspark
 
 
 def spark_session():
+    """
+    Create and return a SparkSession with custom configuration for local development and Kafka integration.
+    Returns:
+        SparkSession: Configured Spark session object.
+    Raises:
+        Exception: If Spark session creation fails.
+    """
     try:
         spark = SparkSession.builder.master("local[*]") \
             .appName("shash_spark") \
