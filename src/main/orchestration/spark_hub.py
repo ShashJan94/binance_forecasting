@@ -1,22 +1,8 @@
-import sys
-import asyncio
-from src.main.ingestion.spark_ingest import fetch_trade_data
-from src.main.utility.kafka_utils import kafka
-from dev.config import SYMBOLS
-
-# Start live data ingestion for all symbols
-producer = kafka()
-loop = asyncio.get_event_loop()
-tasks = [fetch_trade_data(symbol.lower(), producer, limit=1500) for symbol in SYMBOLS[:2]]
-loop.run_until_complete(asyncio.gather(*tasks))
-loop.close()
-
 from src.main.utility.spark_session import spark_session
 from pyspark.sql.types import StructType, StringType, DoubleType, LongType, BooleanType, ArrayType
 from pyspark.sql.functions import *
 from src.main.model.prediction import forecast_udf
 from src.main.egression.spark_egress import preprocess_data, build_30bar_features
-
 
 spark = spark_session()
 
@@ -81,10 +67,11 @@ bars_for_kafka = bars.selectExpr(
 (bars_for_kafka
  .writeStream
  .format("kafka")
- .outputMode("append")  # Or "append" (see below)
+ .outputMode("update")  # Or "append" (see below)
  .option("kafka.bootstrap.servers", "localhost:9092")
  .option("topic", "ohlcv-ticks")  # <---- new topic.
  .option("checkpointLocation", "/tmp/spark-kafka-bars-checkpoint")
+ .option("failOnDataLoss", False)  # Prevents job failure on missing data
  .start()
  )
 
@@ -108,6 +95,7 @@ features_for_kafka = features_pred.selectExpr(
  .option("kafka.bootstrap.servers", "localhost:9092")
  .option("topic", "feature-ticks")
  .option("checkpointLocation", "/tmp/spark-kafka-checkpoint")
+ .option('failOnDataLoss', False)# Prevents job failure on missing data
  .start())
 
 spark.streams.awaitAnyTermination()

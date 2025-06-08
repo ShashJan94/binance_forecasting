@@ -5,15 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="b0de2d2f-eaa7-45eb-8a20-e0f9fb11b9c9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/transfer/spark_to_dash.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dev/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/dev/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/dashboard/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/dashboard/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/dashboard/visualizer/vizualizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/dashboard/visualizer/vizualizer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/ingestion/spark_ingest.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/ingestion/spark_ingest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/model/prediction.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/model/prediction.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/orchestration/spark_hub.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/orchestration/spark_hub.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/transfer/spark_to_websocket_ingestion.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/utility/kafka_produce.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/utility/kafka_utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,6 +33,11 @@
     </option>
   </component>
   <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="dev" />
+      </map>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
@@ -63,6 +62,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "Batch.clean_env.executor": "Run",
     "Batch.start_env.executor": "Run",
     "Python.app.executor": "Run",
     "Python.kafka_produce.executor": "Run",
@@ -72,6 +72,7 @@
     "Python.spark_hub.executor": "Run",
     "Python.spark_ingest.executor": "Run",
     "Python.spark_session.executor": "Run",
+    "Python.spark_tasks.executor": "Run",
     "Python.spark_test.executor": "Run",
     "Python.test_format.executor": "Run",
     "Python.test_model.executor": "Run",
@@ -141,6 +142,7 @@
       <workItem from="1748193339129" duration="15000" />
       <workItem from="1748193388688" duration="19609000" />
       <workItem from="1748368492985" duration="17391000" />
+      <workItem from="1749388496676" duration="10937000" />
     </task>
     <servers />
   </component>
@@ -159,7 +161,10 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/binance_forecasting$spark_tasks.coverage" NAME="spark_tasks Coverage Results" MODIFIED="1749402168005" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/main/orchestration" />
+    <SUITE FILE_PATH="coverage/binance_forecasting$spark_hub.coverage" NAME="spark_hub Coverage Results" MODIFIED="1749403614192" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/main/orchestration" />
     <SUITE FILE_PATH="coverage/binance_forecasting$vizualizer.coverage" NAME="vizualizer Coverage Results" MODIFIED="1748394098032" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/main/dashboard/visualizer" />
-    <SUITE FILE_PATH="coverage/binance_forecasting$app.coverage" NAME="app Coverage Results" MODIFIED="1748394107920" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/main/dashboard" />
+    <SUITE FILE_PATH="coverage/binance_forecasting$app.coverage" NAME="app Coverage Results" MODIFIED="1749402704242" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/main/dashboard" />
+    <SUITE FILE_PATH="coverage/binance_forecasting$main.coverage" NAME="main Coverage Results" MODIFIED="1749330336539" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
